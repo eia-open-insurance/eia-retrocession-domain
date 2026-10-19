@@ -35,7 +35,7 @@ public class DomainException extends RuntimeException {
     }
 
     public static DomainException bookViolation() {
-        return new DomainException(HttpStatus.BAD_REQUEST, "BOOK_SCOPE_VIOLATION",
+        return new DomainException(HttpStatus.NOT_FOUND, "BOOK_SCOPE_VIOLATION",
                 "Retrocession is an ASSUMED-only vertical; X-EIA-Book must be ASSUMED", Map.of());
     }
 
