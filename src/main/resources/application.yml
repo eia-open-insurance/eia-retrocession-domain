@@ -1,0 +1,13 @@
+server:
+  port: 8094
+spring:
+  application:
+    name: eia-retrocession-domain
+eia:
+  retrocession:
+    expert-url: http://localhost:8093
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -16,6 +16,7 @@ Thumbs.db
 # Build output
 target/
 build/
+.gradle/
 dist/
 out/
 node_modules/
