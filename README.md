@@ -11,7 +11,7 @@
 
 ## Purpose
 
-Retrocession business rules, transaction catalog, orchestration, approvals, and APIs. Reinsurance-book retrocession contracts, retro rules, FS-RI hand-off, and recoverables.
+Retrocession business rules, transaction catalog, orchestration, approvals, and APIs. Assumed-book retrocession contracts, retro rules, FS-RI hand-off, and recoverables.
 
 ## Responsibilities
 
