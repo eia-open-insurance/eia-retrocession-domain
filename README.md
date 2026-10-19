@@ -1,13 +1,13 @@
 # eia-retrocession-domain
 
-- GitHub organization: `eia-platform`
-- Repository URL: https://github.com/eia-platform/eia-retrocession-domain
+- GitHub organization: `eia-open-insurance`
+- Repository URL: https://github.com/eia-open-insurance/eia-retrocession-domain
 - Type: Spring Boot service
 - Deployable: Yes
 - Owner: Retrocession
 - Runtime: Java 22 and Spring Boot
 - Data store: eia_retrocession (tx schema)
-- Depends on: eia-retrocession-expert, eia-contracts, eia-platform-libs
+- Depends on: eia-retrocession-expert, eia-contracts, eia-open-insurance-libs
 
 ## Purpose
 
@@ -34,3 +34,6 @@ Retrocession business rules, transaction catalog, orchestration, approvals, and 
 
 Owns the business logic for this vertical.
 
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

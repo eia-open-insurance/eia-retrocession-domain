@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: ghcr.io/eia-platform/eia-retrocession-domain
+  repository: ghcr.io/eia-open-insurance/eia-retrocession-domain
   tag: "0.1.0"
   pullPolicy: IfNotPresent
 
