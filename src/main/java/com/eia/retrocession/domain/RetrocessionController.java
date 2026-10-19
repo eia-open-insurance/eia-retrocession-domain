@@ -62,6 +62,6 @@ public class RetrocessionController {
             @Valid @RequestBody TransitionRetrocessionCommand command) {
         UUID tenantId = RequestScope.tenant(tenantHeader);
         RequestScope.requireAssumedBook(bookHeader);
-        return service.transition(tenantId, id, command.targetStatus());
+        return service.transition(tenantId, id, command.targetStatus(), command.fsriContractNumber());
     }
 }

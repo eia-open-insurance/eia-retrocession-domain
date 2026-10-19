@@ -56,6 +56,14 @@ public class DomainException extends RuntimeException {
         return new DomainException(HttpStatus.SERVICE_UNAVAILABLE, "EXPERT_UNAVAILABLE", message, Map.of());
     }
 
+    public static DomainException fsriConflict(String message, Map<String, String> details) {
+        return new DomainException(HttpStatus.CONFLICT, "FSRI_CONFLICT", message, details);
+    }
+
+    public static DomainException fsriUnavailable(String message, Map<String, String> details) {
+        return new DomainException(HttpStatus.SERVICE_UNAVAILABLE, "FSRI_UNAVAILABLE", message, details);
+    }
+
     public HttpStatus getStatus() {
         return status;
     }

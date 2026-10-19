@@ -6,6 +6,11 @@ spring:
 eia:
   retrocession:
     expert-url: http://localhost:8093
+  fsri:
+    base-url: http://localhost:8181
+    retro-path: /sim/fsri/v1/retros
+    connect-timeout: 2s
+    read-timeout: 5s
 management:
   endpoints:
     web:
