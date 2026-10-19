@@ -7,7 +7,7 @@
 - Owner: Retrocession
 - Runtime: Java 22 and Spring Boot
 - Data store: eia_retrocession (tx schema)
-- Depends on: eia-retrocession-expert, eia-contracts, eia-open-insurance-libs
+- Depends on: eia-retrocession-expert, eia-contracts, eia-platform/libs
 
 ## Purpose
 
