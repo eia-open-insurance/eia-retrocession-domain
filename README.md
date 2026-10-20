@@ -17,7 +17,13 @@ Retrocession business rules, transaction catalog, orchestration, approvals, and 
 
 - Spring Boot 3.4.0 on Java 22, port `8094`, calling the expert with `RestClient`.
 - Public API under `/api/v1/retrocessions` (list, get, create, status transition).
-- Requires `X-EIA-Tenant` (UUID) and `X-EIA-Book: ASSUMED`; all other books return a structured `400 BOOK_SCOPE_VIOLATION`.
+- `GET /api/v1/retrocessions/search?q=&limit=` returns the common shell projection
+  (`query`, `limit`, `items[]` with `id`, `type`, `label`, `secondary`, `status`,
+  `href`); it matches the retrocession number or source contract id, is
+  tenant-scoped, caps `limit` at 25, and returns the latest cases by `updatedAt`
+  when `q` is blank.
+- Requires `X-EIA-Tenant` (UUID) and `X-EIA-Book: ASSUMED`; a missing book returns
+  `400 BOOK_REQUIRED` and all other books return `404 BOOK_SCOPE_VIOLATION`.
 - Enforces non-negative ceded amounts, three-letter currency, and the retro-case lifecycle from SPEC 11.10.3 before calling the expert.
 - `POST /api/v1/retrocessions/{id}/transition` with `HANDOFF_PENDING` calls the FS-RI simulator
   (`FsriRetroClient` → `/sim/fsri/v1/retros`, default `http://localhost:8181`) using the SPEC

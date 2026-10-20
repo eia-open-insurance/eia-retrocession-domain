@@ -7,9 +7,12 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -26,6 +29,11 @@ import java.util.UUID;
  */
 @Service
 public class RetrocessionService {
+    private static final Comparator<RetrocessionDto> LATEST_FIRST =
+            Comparator.comparing(RetrocessionDto::updatedAt,
+                            Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(RetrocessionDto::id, Comparator.nullsLast(Comparator.naturalOrder()));
+
     private final RetrocessionClient client;
     private final FsriRetroClient fsriClient;
 
@@ -41,6 +49,27 @@ public class RetrocessionService {
 
     public List<RetrocessionDto> list(UUID tenantId) {
         return client.findAll(tenantId);
+    }
+
+    /**
+     * Shell global-search projection over the ASSUMED book. Matching is
+     * case-insensitive and covers the retrocession number and the source
+     * contract id. A blank query returns the most recently updated cases.
+     */
+    public SearchResult search(UUID tenantId, String query, int limit) {
+        int effectiveLimit = SearchResult.effectiveLimit(limit);
+        String term = query == null ? "" : query.trim();
+        String needle = term.toLowerCase(Locale.ROOT);
+        List<RetrocessionDto> retros = client.findAll(tenantId);
+        List<SearchResult.Item> items = (retros == null ? List.<RetrocessionDto>of() : retros).stream()
+                .filter(Objects::nonNull)
+                .filter(retro -> tenantId.equals(retro.tenantId()))
+                .filter(retro -> matches(retro, needle))
+                .sorted(LATEST_FIRST)
+                .limit(effectiveLimit)
+                .map(RetrocessionService::searchItem)
+                .toList();
+        return new SearchResult(term, effectiveLimit, items);
     }
 
     public RetrocessionDto get(UUID tenantId, UUID id) {
@@ -164,6 +193,28 @@ public class RetrocessionService {
             return "FS-RI hand-off failed";
         }
         return value.length() <= 1000 ? value : value.substring(0, 1000);
+    }
+
+    private static boolean matches(RetrocessionDto retro, String needle) {
+        return needle.isEmpty()
+                || contains(retro.retrocessionNumber(), needle)
+                || contains(retro.contractId(), needle);
+    }
+
+    private static boolean contains(Object value, String needle) {
+        return value != null && value.toString().toLowerCase(Locale.ROOT).contains(needle);
+    }
+
+    private static SearchResult.Item searchItem(RetrocessionDto retro) {
+        String status = retro.status() == null ? null : retro.status().name();
+        String book = retro.businessBook() == null ? "ASSUMED" : retro.businessBook();
+        return new SearchResult.Item(
+                retro.id(),
+                "RETROCESSION",
+                retro.retrocessionNumber(),
+                SearchResult.secondary(book, status),
+                status,
+                "/retrocession?record=" + retro.id());
     }
 
     private static void requireNonNegative(String field, BigDecimal amount) {

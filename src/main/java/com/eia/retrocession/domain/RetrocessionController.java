@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +32,18 @@ public class RetrocessionController {
         UUID tenantId = RequestScope.tenant(tenantHeader);
         RequestScope.requireAssumedBook(bookHeader);
         return service.list(tenantId);
+    }
+
+    /** Shell global search, scoped to the ASSUMED book. */
+    @GetMapping("/search")
+    public SearchResult search(
+            @RequestHeader(value = RequestScope.TENANT_HEADER, required = false) String tenantHeader,
+            @RequestHeader(value = RequestScope.BOOK_HEADER, required = false) String bookHeader,
+            @RequestParam(value = "q", required = false, defaultValue = "") String query,
+            @RequestParam(value = "limit", required = false, defaultValue = "10") int limit) {
+        UUID tenantId = RequestScope.tenant(tenantHeader);
+        RequestScope.requireAssumedBook(bookHeader);
+        return service.search(tenantId, query, limit);
     }
 
     @GetMapping("/{id}")

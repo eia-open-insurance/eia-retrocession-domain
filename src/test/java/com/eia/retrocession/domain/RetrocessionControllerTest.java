@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -344,5 +345,163 @@ class RetrocessionControllerTest {
                         .header("X-EIA-Book", "ASSUMED"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("EXPERT_UNAVAILABLE"));
+    }
+
+    // ------------------------------------------------------------- search
+
+    private static final UUID OTHER_TENANT = UUID.fromString("99999999-9999-7999-8999-999999999999");
+    private static final UUID OTHER_CONTRACT = UUID.fromString("aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa");
+
+    private static RetrocessionDto searchRetro(UUID id, UUID tenantId, String number, UUID contractId,
+                                               RetrocessionStatus status, Instant updatedAt) {
+        return new RetrocessionDto(id, tenantId, "ASSUMED", number, contractId, RETRO_CONTRACT, status,
+                new BigDecimal("1000.0000"), new BigDecimal("250.0000"), "USD", 0,
+                updatedAt, updatedAt);
+    }
+
+    private static List<RetrocessionDto> latestRetros(int count) {
+        List<RetrocessionDto> retros = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            retros.add(searchRetro(new UUID(0, index + 1), TENANT,
+                    String.format("RET-2026-%04d", index), CONTRACT, RetrocessionStatus.OPEN,
+                    HANDED_OFF_AT.plusSeconds(index * 60L)));
+        }
+        return retros;
+    }
+
+    @Test
+    void searchMatchesRetrocessionNumberAndReturnsTheShellShape() throws Exception {
+        RetrocessionDto match = searchRetro(new UUID(0, 1), TENANT, "RET-2026-0001", CONTRACT,
+                RetrocessionStatus.OPEN, HANDED_OFF_AT);
+        RetrocessionDto other = searchRetro(new UUID(0, 2), TENANT, "RET-2026-0002", OTHER_CONTRACT,
+                RetrocessionStatus.CONFIRMED, HANDED_OFF_AT.plusSeconds(60));
+        when(client.findAll(TENANT)).thenReturn(List.of(match, other));
+
+        mvc.perform(get("/api/v1/retrocessions/search")
+                        .param("q", "ret-2026-0001")
+                        .header("X-EIA-Tenant", TENANT.toString())
+                        .header("X-EIA-Book", "ASSUMED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.query").value("ret-2026-0001"))
+                .andExpect(jsonPath("$.limit").value(10))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(match.id().toString()))
+                .andExpect(jsonPath("$.items[0].type").value("RETROCESSION"))
+                .andExpect(jsonPath("$.items[0].label").value("RET-2026-0001"))
+                .andExpect(jsonPath("$.items[0].secondary").value("ASSUMED · OPEN"))
+                .andExpect(jsonPath("$.items[0].status").value("OPEN"))
+                .andExpect(jsonPath("$.items[0].href").value("/retrocession?record=" + match.id()));
+    }
+
+    @Test
+    void searchMatchesContractId() throws Exception {
+        when(client.findAll(TENANT)).thenReturn(List.of(
+                searchRetro(new UUID(0, 1), TENANT, "RET-2026-0001", CONTRACT,
+                        RetrocessionStatus.OPEN, HANDED_OFF_AT),
+                searchRetro(new UUID(0, 2), TENANT, "RET-2026-0002", OTHER_CONTRACT,
+                        RetrocessionStatus.OPEN, HANDED_OFF_AT)));
+
+        mvc.perform(get("/api/v1/retrocessions/search")
+                        .param("q", "33333333-3333")
+                        .header("X-EIA-Tenant", TENANT.toString())
+                        .header("X-EIA-Book", "ASSUMED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].label").value("RET-2026-0001"));
+    }
+
+    @Test
+    void blankSearchReturnsTheLatestTenByUpdatedAt() throws Exception {
+        when(client.findAll(TENANT)).thenReturn(latestRetros(12));
+
+        mvc.perform(get("/api/v1/retrocessions/search")
+                        .param("q", "   ")
+                        .header("X-EIA-Tenant", TENANT.toString())
+                        .header("X-EIA-Book", "ASSUMED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.query").value(""))
+                .andExpect(jsonPath("$.limit").value(10))
+                .andExpect(jsonPath("$.items.length()").value(10))
+                .andExpect(jsonPath("$.items[0].label").value("RET-2026-0011"))
+                .andExpect(jsonPath("$.items[9].label").value("RET-2026-0002"));
+    }
+
+    @Test
+    void searchHonoursAnExplicitLimit() throws Exception {
+        when(client.findAll(TENANT)).thenReturn(latestRetros(8));
+
+        mvc.perform(get("/api/v1/retrocessions/search")
+                        .param("q", "RET")
+                        .param("limit", "3")
+                        .header("X-EIA-Tenant", TENANT.toString())
+                        .header("X-EIA-Book", "ASSUMED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.limit").value(3))
+                .andExpect(jsonPath("$.items.length()").value(3))
+                .andExpect(jsonPath("$.items[0].label").value("RET-2026-0007"));
+    }
+
+    @Test
+    void searchClampsLimitToTwentyFive() throws Exception {
+        when(client.findAll(TENANT)).thenReturn(latestRetros(30));
+
+        mvc.perform(get("/api/v1/retrocessions/search")
+                        .param("q", "RET")
+                        .param("limit", "100")
+                        .header("X-EIA-Tenant", TENANT.toString())
+                        .header("X-EIA-Book", "ASSUMED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.limit").value(25))
+                .andExpect(jsonPath("$.items.length()").value(25))
+                .andExpect(jsonPath("$.items[0].label").value("RET-2026-0029"));
+    }
+
+    @Test
+    void searchIsTenantScoped() throws Exception {
+        RetrocessionDto mine = searchRetro(new UUID(0, 1), TENANT, "RET-2026-0001", CONTRACT,
+                RetrocessionStatus.OPEN, HANDED_OFF_AT);
+        RetrocessionDto foreign = searchRetro(new UUID(0, 2), OTHER_TENANT, "RET-2026-0002", CONTRACT,
+                RetrocessionStatus.OPEN, HANDED_OFF_AT.plusSeconds(60));
+        when(client.findAll(TENANT)).thenReturn(List.of(mine, foreign));
+
+        mvc.perform(get("/api/v1/retrocessions/search")
+                        .param("q", "RET-2026")
+                        .header("X-EIA-Tenant", TENANT.toString())
+                        .header("X-EIA-Book", "ASSUMED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(mine.id().toString()));
+
+        verify(client).findAll(TENANT);
+    }
+
+    @Test
+    void searchRequiresTenantHeader() throws Exception {
+        mvc.perform(get("/api/v1/retrocessions/search").header("X-EIA-Book", "ASSUMED"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TENANT_REQUIRED"));
+
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void searchRequiresTheAssumedBook() throws Exception {
+        mvc.perform(get("/api/v1/retrocessions/search")
+                        .header("X-EIA-Tenant", TENANT.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BOOK_REQUIRED"));
+
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void searchHidesTheDirectBookAs404() throws Exception {
+        mvc.perform(get("/api/v1/retrocessions/search")
+                        .header("X-EIA-Tenant", TENANT.toString())
+                        .header("X-EIA-Book", "DIRECT"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("BOOK_SCOPE_VIOLATION"));
+
+        verifyNoInteractions(client);
     }
 }
